@@ -62,7 +62,7 @@ public class SpriteBatch extends Shape {
 	// Fields
 	// ===========================================================
 
-	protected final ITexture mTexture;
+	protected ITexture mTexture;
 	protected final int mCapacity;
 	protected final ISpriteBatchVertexBufferObject mSpriteBatchVertexBufferObject;
 

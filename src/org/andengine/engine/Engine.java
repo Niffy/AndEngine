@@ -1,5 +1,10 @@
 package org.andengine.engine;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
+
+import org.andengine.BuildConfig;
 import org.andengine.audio.music.MusicFactory;
 import org.andengine.audio.music.MusicManager;
 import org.andengine.audio.sound.SoundFactory;
@@ -12,9 +17,19 @@ import org.andengine.engine.handler.UpdateHandlerList;
 import org.andengine.engine.handler.runnable.RunnableHandler;
 import org.andengine.engine.options.EngineOptions;
 import org.andengine.entity.scene.Scene;
+import org.andengine.input.sensor.SensorDelay;
+import org.andengine.input.sensor.acceleration.AccelerationData;
+import org.andengine.input.sensor.acceleration.AccelerationSensorOptions;
+import org.andengine.input.sensor.acceleration.IAccelerationListener;
+import org.andengine.input.sensor.location.ILocationListener;
+import org.andengine.input.sensor.location.LocationProviderStatus;
+import org.andengine.input.sensor.location.LocationSensorOptions;
+import org.andengine.input.sensor.orientation.IOrientationListener;
+import org.andengine.input.sensor.orientation.OrientationData;
+import org.andengine.input.sensor.orientation.OrientationSensorOptions;
 import org.andengine.input.touch.TouchEvent;
 import org.andengine.input.touch.controller.ITouchController;
-import org.andengine.input.touch.controller.ITouchController.ITouchEventCallback;
+import org.andengine.input.touch.controller.ITouchEventCallback;
 import org.andengine.input.touch.controller.MultiTouchController;
 import org.andengine.input.touch.controller.SingleTouchController;
 import org.andengine.opengl.font.FontFactory;
@@ -24,18 +39,8 @@ import org.andengine.opengl.texture.TextureManager;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
 import org.andengine.opengl.util.GLState;
 import org.andengine.opengl.vbo.VertexBufferObjectManager;
-import org.andengine.sensor.SensorDelay;
-import org.andengine.sensor.accelerometer.AccelerometerData;
-import org.andengine.sensor.accelerometer.AccelerometerSensorOptions;
-import org.andengine.sensor.accelerometer.IAccelerometerListener;
-import org.andengine.sensor.location.ILocationListener;
-import org.andengine.sensor.location.LocationProviderStatus;
-import org.andengine.sensor.location.LocationSensorOptions;
-import org.andengine.sensor.orientation.IOrientationListener;
-import org.andengine.sensor.orientation.OrientationData;
-import org.andengine.sensor.orientation.OrientationSensorOptions;
-import org.andengine.util.constants.TimeConstants;
 import org.andengine.util.debug.Debug;
+import org.andengine.util.time.TimeConstants;
 
 import android.content.Context;
 import android.hardware.Sensor;
@@ -55,13 +60,13 @@ import android.view.View.OnTouchListener;
 import android.view.WindowManager;
 
 /**
- * (c) 2010 Nicolas Gramlich 
+ * (c) 2010 Nicolas Gramlich
  * (c) 2011 Zynga Inc.
  * 
  * @author Nicolas Gramlich
  * @since 12:21:31 - 08.03.2010
  */
-public class Engine implements SensorEventListener, OnTouchListener, ITouchEventCallback, TimeConstants, LocationListener {
+public class Engine implements SensorEventListener, OnTouchListener, ITouchEventCallback, LocationListener {
 	// ===========================================================
 	// Constants
 	// ===========================================================
@@ -74,15 +79,15 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	// Fields
 	// ===========================================================
 
-	private boolean mRunning = false;
+	private boolean mRunning;
+	private boolean mDestroyed;
 
-	private long mLastTick = -1;
-	private float mSecondsElapsedTotal = 0;
+	private long mLastTick;
+	private float mSecondsElapsedTotal;
 
-	private final State mThreadLocker = new State();
+	private final EngineLock mEngineLock;
 
-	private final UpdateThread mUpdateThread = new UpdateThread();
-
+	private final UpdateThread mUpdateThread;
 	private final RunnableHandler mUpdateThreadRunnableHandler = new RunnableHandler();
 
 	private final EngineOptions mEngineOptions;
@@ -90,12 +95,13 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 
 	private ITouchController mTouchController;
 
-	private TextureManager mTextureManager = new TextureManager();
-	private FontManager mFontManager = new FontManager();
-	private ShaderProgramManager mShaderProgramManager = new ShaderProgramManager();
+	private final VertexBufferObjectManager mVertexBufferObjectManager = new VertexBufferObjectManager();
+	private final TextureManager mTextureManager = new TextureManager();
+	private final FontManager mFontManager = new FontManager();
+	private final ShaderProgramManager mShaderProgramManager = new ShaderProgramManager();
 
-	private SoundManager mSoundManager;
-	private MusicManager mMusicManager;
+	private final SoundManager mSoundManager;
+	private final MusicManager mMusicManager;
 
 	protected Scene mScene;
 
@@ -104,8 +110,8 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	private ILocationListener mLocationListener;
 	private Location mLocation;
 
-	private IAccelerometerListener mAccelerometerListener;
-	private AccelerometerData mAccelerometerData;
+	private IAccelerationListener mAccelerationListener;
+	private AccelerationData mAccelerationData;
 
 	private IOrientationListener mOrientationListener;
 	private OrientationData mOrientationData;
@@ -116,39 +122,59 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	protected int mSurfaceWidth = 1; // 1 to prevent accidental DIV/0
 	protected int mSurfaceHeight = 1; // 1 to prevent accidental DIV/0
 
-	private boolean mIsMethodTracing;
-
 	// ===========================================================
 	// Constructors
 	// ===========================================================
 
 	public Engine(final EngineOptions pEngineOptions) {
+		/* Initialize Factory and Manager classes. */
 		BitmapTextureAtlasTextureRegionFactory.reset();
 		SoundFactory.onCreate();
 		MusicFactory.onCreate();
 		FontFactory.onCreate();
-		VertexBufferObjectManager.onCreate();
+		this.mVertexBufferObjectManager.onCreate();
 		this.mTextureManager.onCreate();
 		this.mFontManager.onCreate();
 		this.mShaderProgramManager.onCreate();
 
+		/* Apply EngineOptions. */
 		this.mEngineOptions = pEngineOptions;
+		if(this.mEngineOptions.hasEngineLock()) {
+			this.mEngineLock = pEngineOptions.getEngineLock();
+		} else {
+			this.mEngineLock = new EngineLock(false);
+		}
 		this.mCamera = pEngineOptions.getCamera();
 
+		/* Touch. */
 		if(this.mEngineOptions.getTouchOptions().needsMultiTouch()) {
 			this.setTouchController(new MultiTouchController());
 		} else {
 			this.setTouchController(new SingleTouchController());
 		}
 
+		/* Audio. */
 		if(this.mEngineOptions.getAudioOptions().needsSound()) {
-			this.mSoundManager = new SoundManager();
+			this.mSoundManager = new SoundManager(this.mEngineOptions.getAudioOptions().getSoundOptions().getMaxSimultaneousStreams());
+		} else {
+			this.mSoundManager = null;
 		}
-
 		if(this.mEngineOptions.getAudioOptions().needsMusic()) {
 			this.mMusicManager = new MusicManager();
+		} else {
+			this.mMusicManager = null;
 		}
 
+		/* Start the UpdateThread. */
+		if(this.mEngineOptions.hasUpdateThread()) {
+			this.mUpdateThread = this.mEngineOptions.getUpdateThread();
+		} else {
+			this.mUpdateThread = new UpdateThread();
+		}
+		this.mUpdateThread.setEngine(this);
+	}
+
+	public void startUpdateThread() throws IllegalThreadStateException {
 		this.mUpdateThread.start();
 	}
 
@@ -156,7 +182,7 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	// Getter & Setter
 	// ===========================================================
 
-	public boolean isRunning() {
+	public synchronized boolean isRunning() {
 		return this.mRunning;
 	}
 
@@ -171,6 +197,15 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 		if(this.mRunning) {
 			this.mRunning = false;
 		}
+	}
+
+	/**
+	 * The {@link EngineLock} can be used to {@link EngineLock#lock()}/{@link EngineLock#unlock()} on, to ensure the code in between runs mutually exclusive to the {@link UpdateThread} and the GL{@link Thread}.
+	 * When the caller already is on the {@link UpdateThread} or the GL-{@link Thread}, that code is executed immediately.
+	 * @return the {@link EngineLock} the {@link Engine} locks on to ensure mutually exclusivity to the {@link UpdateThread} and the GL{@link Thread}.
+	 */
+	public EngineLock getEngineLock() {
+		return this.mEngineLock;
 	}
 
 	public Scene getScene() {
@@ -194,7 +229,6 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	}
 
 	public void setSurfaceSize(final int pSurfaceWidth, final int pSurfaceHeight) {
-		//		Debug.w("SurfaceView size changed to (width x height): " + pSurfaceWidth + " x " + pSurfaceHeight, new Exception());
 		this.mSurfaceWidth = pSurfaceWidth;
 		this.mSurfaceHeight = pSurfaceHeight;
 		this.onUpdateCameraSurface();
@@ -221,12 +255,16 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 		this.mTouchController.setTouchEventCallback(this);
 	}
 
-	public AccelerometerData getAccelerometerData() {
-		return this.mAccelerometerData;
+	public AccelerationData getAccelerationData() {
+		return this.mAccelerationData;
 	}
 
 	public OrientationData getOrientationData() {
 		return this.mOrientationData;
+	}
+
+	public VertexBufferObjectManager getVertexBufferObjectManager() {
+		return this.mVertexBufferObjectManager;
 	}
 
 	public TextureManager getTextureManager() {
@@ -281,24 +319,6 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 		this.mDrawHandlers.clear();
 	}
 
-	public boolean isMethodTracing() {
-		return this.mIsMethodTracing;
-	}
-
-	public void startMethodTracing(final String pTraceFileName) {
-		if(!this.mIsMethodTracing) {
-			this.mIsMethodTracing = true;
-			android.os.Debug.startMethodTracing(pTraceFileName);
-		}
-	}
-
-	public void stopMethodTracing() {
-		if(this.mIsMethodTracing) {
-			android.os.Debug.stopMethodTracing();
-			this.mIsMethodTracing = false;
-		}
-	}
-
 	// ===========================================================
 	// Methods for/from SuperClass/Interfaces
 	// ===========================================================
@@ -308,17 +328,17 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 		if(this.mRunning) {
 			switch(pSensor.getType()) {
 				case Sensor.TYPE_ACCELEROMETER:
-					if(this.mAccelerometerData != null) {
-						this.mAccelerometerData.setAccuracy(pAccuracy);
-						this.mAccelerometerListener.onAccelerometerChanged(this.mAccelerometerData);
+					if(this.mAccelerationData != null) {
+						this.mAccelerationData.setAccuracy(pAccuracy);
+						this.mAccelerationListener.onAccelerationAccuracyChanged(this.mAccelerationData);
 					} else if(this.mOrientationData != null) {
-						this.mOrientationData.setAccelerometerAccuracy(pAccuracy);
-						this.mOrientationListener.onOrientationChanged(this.mOrientationData);
+						this.mOrientationData.setAccelerationAccuracy(pAccuracy);
+						this.mOrientationListener.onOrientationAccuracyChanged(this.mOrientationData);
 					}
 					break;
 				case Sensor.TYPE_MAGNETIC_FIELD:
 					this.mOrientationData.setMagneticFieldAccuracy(pAccuracy);
-					this.mOrientationListener.onOrientationChanged(this.mOrientationData);
+					this.mOrientationListener.onOrientationAccuracyChanged(this.mOrientationData);
 					break;
 			}
 		}
@@ -329,11 +349,11 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 		if(this.mRunning) {
 			switch(pEvent.sensor.getType()) {
 				case Sensor.TYPE_ACCELEROMETER:
-					if(this.mAccelerometerData != null) {
-						this.mAccelerometerData.setValues(pEvent.values);
-						this.mAccelerometerListener.onAccelerometerChanged(this.mAccelerometerData);
+					if(this.mAccelerationData != null) {
+						this.mAccelerationData.setValues(pEvent.values);
+						this.mAccelerationListener.onAccelerationChanged(this.mAccelerationData);
 					} else if(this.mOrientationData != null) {
-						this.mOrientationData.setAccelerometerValues(pEvent.values);
+						this.mOrientationData.setAccelerationValues(pEvent.values);
 						this.mOrientationListener.onOrientationChanged(this.mOrientationData);
 					}
 					break;
@@ -389,11 +409,8 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 		if(this.mRunning) {
 			this.mTouchController.onHandleMotionEvent(pSurfaceMotionEvent);
 			try {
-				/*
-				 * As a human cannot interact 1000x per second, we pause the
-				 * UI-Thread for a little.
-				 */
-				Thread.sleep(20); // TODO Maybe this can be removed, when TouchEvents are handled on the UpdateThread!
+				/* Because a human cannot interact 1000x per second, we pause the UI-Thread for a little. */
+				Thread.sleep(this.mEngineOptions.getTouchOptions().getTouchEventIntervalMilliseconds());
 			} catch (final InterruptedException e) {
 				Debug.e(e);
 			}
@@ -443,23 +460,65 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	// ===========================================================
 
 	public void runOnUpdateThread(final Runnable pRunnable) {
-		this.mUpdateThreadRunnableHandler.postRunnable(pRunnable);
+		this.runOnUpdateThread(pRunnable, true);
+	}
+
+	/**
+	 * This method is useful when you want to execute code on the {@link UpdateThread}, even though the Engine is paused.
+	 *
+	 * @param pRunnable the {@link Runnable} to be run on the {@link UpdateThread}.
+	 * @param pOnlyWhenEngineRunning if <code>true</code>, the execution of the {@link Runnable} will be delayed until the next time {@link Engine#onUpdateUpdateHandlers(float)} is picked up, which is when {@link Engine#isRunning()} is <code>true</code>.
+	 * 								 if <code>false</code>, the execution of the {@link Runnable} will happen as soon as possible on the {@link UpdateThread}, no matter what {@link Engine#isRunning()} is.
+	 */
+	public void runOnUpdateThread(final Runnable pRunnable, final boolean pOnlyWhenEngineRunning) {
+		if(pOnlyWhenEngineRunning) {
+			this.mUpdateThreadRunnableHandler.postRunnable(pRunnable);
+		} else {
+			this.mUpdateThread.postRunnable(pRunnable);
+		}
+	}
+
+	/**
+	 * @param pRunnable the {@link Runnable} to run mutually exclusive to the {@link UpdateThread} and the GL-{@link Thread}.
+	 * When the caller already is on the {@link UpdateThread} or the GL-{@link Thread}, the {@link Runnable} is executed immediately.
+	 * @see {@link Engine#getEngineLock()} to manually {@link EngineLock#lock()}/{@link EngineLock#unlock()} on, while avoiding creating a {@link Runnable}.
+	 */
+	public void runSafely(final Runnable pRunnable) {
+		this.mEngineLock.lock();
+		try {
+			pRunnable.run();
+		} finally {
+			this.mEngineLock.unlock();
+		}
 	}
 
 	public void onDestroy() {
+		this.mEngineLock.lock();
+		try {
+			this.mDestroyed = true;
+			this.mEngineLock.notifyCanUpdate();
+		} finally {
+			this.mEngineLock.unlock();
+		}
+		try {
+			this.mUpdateThread.join();
+		} catch (final InterruptedException e) {
+			Debug.e("Could not join UpdateThread.", e);
+			Debug.w("Trying to manually interrupt UpdateThread.");
+			this.mUpdateThread.interrupt();
+		}
+
+		this.mVertexBufferObjectManager.onDestroy();
 		this.mTextureManager.onDestroy();
 		this.mFontManager.onDestroy();
 		this.mShaderProgramManager.onDestroy();
-		VertexBufferObjectManager.onDestroy();
-
-		this.mUpdateThread.interrupt();
 	}
 
 	public void onReloadResources() {
+		this.mVertexBufferObjectManager.onReload();
 		this.mTextureManager.onReload();
 		this.mFontManager.onReload();
 		this.mShaderProgramManager.onReload();
-		VertexBufferObjectManager.onReload();
 	}
 
 	protected Camera getCameraFromSurfaceTouchEvent(final TouchEvent pTouchEvent) {
@@ -474,28 +533,50 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 		pCamera.convertSurfaceToSceneTouchEvent(pSurfaceTouchEvent, this.mSurfaceWidth, this.mSurfaceHeight);
 	}
 
+	protected void convertSceneToSurfaceTouchEvent(final Camera pCamera, final TouchEvent pSurfaceTouchEvent) {
+		pCamera.convertSceneToSurfaceTouchEvent(pSurfaceTouchEvent, this.mSurfaceWidth, this.mSurfaceHeight);
+	}
+
 	void onTickUpdate() throws InterruptedException {
 		if(this.mRunning) {
 			final long secondsElapsed = this.getNanosecondsElapsed();
 
-			this.onUpdate(secondsElapsed);
+			this.mEngineLock.lock();
+			try {
+				this.throwOnDestroyed();
 
-			this.yieldDraw();
+				this.onUpdate(secondsElapsed);
+
+				this.throwOnDestroyed();
+
+				this.mEngineLock.notifyCanDraw();
+				this.mEngineLock.waitUntilCanUpdate();
+			} finally {
+				this.mEngineLock.unlock();
+			}
 		} else {
-			this.yieldDraw();
+			this.mEngineLock.lock();
+			try {
+				this.throwOnDestroyed();
+
+				this.mEngineLock.notifyCanDraw();
+				this.mEngineLock.waitUntilCanUpdate();
+			} finally {
+				this.mEngineLock.unlock();
+			}
 
 			Thread.sleep(16);
 		}
 	}
 
-	private void yieldDraw() throws InterruptedException {
-		final State threadLocker = this.mThreadLocker;
-		threadLocker.notifyCanDraw();
-		threadLocker.waitUntilCanUpdate();
+	private void throwOnDestroyed() throws EngineDestroyedException {
+		if(this.mDestroyed) {
+			throw new EngineDestroyedException();
+		}
 	}
 
 	public void onUpdate(final long pNanosecondsElapsed) throws InterruptedException {
-		final float pSecondsElapsed = (float)pNanosecondsElapsed * TimeConstants.SECONDS_PER_NANOSECOND;
+		final float pSecondsElapsed = pNanosecondsElapsed * TimeConstants.SECONDS_PER_NANOSECOND;
 
 		this.mSecondsElapsedTotal += pSecondsElapsed;
 		this.mLastTick += pNanosecondsElapsed;
@@ -522,18 +603,23 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	}
 
 	public void onDrawFrame(final GLState pGLState) throws InterruptedException {
-		final State threadLocker = this.mThreadLocker;
+		final EngineLock engineLock = this.mEngineLock;
 
-		threadLocker.waitUntilCanDraw();
+		engineLock.lock();
+		try {
+			engineLock.waitUntilCanDraw();
 
-		this.mTextureManager.updateTextures(pGLState);
-		this.mFontManager.updateFonts(pGLState);
-		VertexBufferObjectManager.updateBufferObjects(pGLState);
+			this.mVertexBufferObjectManager.updateVertexBufferObjects(pGLState);
+			this.mTextureManager.updateTextures(pGLState);
+			this.mFontManager.updateFonts(pGLState);
 
-		this.onUpdateDrawHandlers(pGLState, this.mCamera);
-		this.onDrawScene(pGLState, this.mCamera);
+			this.onUpdateDrawHandlers(pGLState, this.mCamera);
+			this.onDrawScene(pGLState, this.mCamera);
 
-		threadLocker.notifyCanUpdate();
+			engineLock.notifyCanUpdate();
+		} finally {
+			engineLock.unlock();
+		}
 	}
 
 	protected void onDrawScene(final GLState pGLState, final Camera pCamera) {
@@ -547,11 +633,7 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	private long getNanosecondsElapsed() {
 		final long now = System.nanoTime();
 
-		return this.calculateNanosecondsElapsed(now, this.mLastTick);
-	}
-
-	protected long calculateNanosecondsElapsed(final long pNow, final long pLastTick) {
-		return pNow - pLastTick;
+		return now - this.mLastTick;
 	}
 
 	public boolean enableVibrator(final Context pContext) {
@@ -592,27 +674,27 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	}
 
 	/**
-	 * @see {@link Engine#enableAccelerometerSensor(Context, IAccelerometerListener, AccelerometerSensorOptions)}
+	 * @see {@link Engine#enableAccelerationSensor(Context, IAccelerationListener, AccelerationSensorOptions)}
 	 */
-	public boolean enableAccelerometerSensor(final Context pContext, final IAccelerometerListener pAccelerometerListener) {
-		return this.enableAccelerometerSensor(pContext, pAccelerometerListener, new AccelerometerSensorOptions(SENSORDELAY_DEFAULT));
+	public boolean enableAccelerationSensor(final Context pContext, final IAccelerationListener pAccelerationListener) {
+		return this.enableAccelerationSensor(pContext, pAccelerationListener, new AccelerationSensorOptions(Engine.SENSORDELAY_DEFAULT));
 	}
 
 	/**
 	 * @return <code>true</code> when the sensor was successfully enabled, <code>false</code> otherwise.
 	 */
-	public boolean enableAccelerometerSensor(final Context pContext, final IAccelerometerListener pAccelerometerListener, final AccelerometerSensorOptions pAccelerometerSensorOptions) {
+	public boolean enableAccelerationSensor(final Context pContext, final IAccelerationListener pAccelerationListener, final AccelerationSensorOptions pAccelerationSensorOptions) {
 		final SensorManager sensorManager = (SensorManager) pContext.getSystemService(Context.SENSOR_SERVICE);
 		if(this.isSensorSupported(sensorManager, Sensor.TYPE_ACCELEROMETER)) {
-			this.mAccelerometerListener = pAccelerometerListener;
+			this.mAccelerationListener = pAccelerationListener;
 
-			if(this.mAccelerometerData == null) {
+			if(this.mAccelerationData == null) {
 				final Display display = ((WindowManager) pContext.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
 				final int displayRotation = display.getOrientation();
-				this.mAccelerometerData = new AccelerometerData(displayRotation);
+				this.mAccelerationData = new AccelerationData(displayRotation);
 			}
 
-			this.registerSelfAsSensorListener(sensorManager, Sensor.TYPE_ACCELEROMETER, pAccelerometerSensorOptions.getSensorDelay());
+			this.registerSelfAsSensorListener(sensorManager, Sensor.TYPE_ACCELEROMETER, pAccelerationSensorOptions.getSensorDelay());
 
 			return true;
 		} else {
@@ -624,7 +706,7 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	/**
 	 * @return <code>true</code> when the sensor was successfully disabled, <code>false</code> otherwise.
 	 */
-	public boolean disableAccelerometerSensor(final Context pContext) {
+	public boolean disableAccelerationSensor(final Context pContext) {
 		final SensorManager sensorManager = (SensorManager) pContext.getSystemService(Context.SENSOR_SERVICE);
 		if(this.isSensorSupported(sensorManager, Sensor.TYPE_ACCELEROMETER)) {
 			this.unregisterSelfAsSensorListener(sensorManager, Sensor.TYPE_ACCELEROMETER);
@@ -638,7 +720,7 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	 * @see {@link Engine#enableOrientationSensor(Context, IOrientationListener, OrientationSensorOptions)}
 	 */
 	public boolean enableOrientationSensor(final Context pContext, final IOrientationListener pOrientationListener) {
-		return this.enableOrientationSensor(pContext, pOrientationListener, new OrientationSensorOptions(SENSORDELAY_DEFAULT));
+		return this.enableOrientationSensor(pContext, pOrientationListener, new OrientationSensorOptions(Engine.SENSORDELAY_DEFAULT));
 	}
 
 	/**
@@ -697,56 +779,157 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	// Inner and Anonymous Classes
 	// ===========================================================
 
-	private class UpdateThread extends Thread {
+	public static class UpdateThread extends Thread {
+		// ===========================================================
+		// Constants
+		// ===========================================================
+
+		// ===========================================================
+		// Fields
+		// ===========================================================
+
+		private Engine mEngine;
+		private final RunnableHandler mRunnableHandler = new RunnableHandler();
+
+		// ===========================================================
+		// Constructors
+		// ===========================================================
+
 		public UpdateThread() {
-			super("UpdateThread");
+			super(UpdateThread.class.getSimpleName());
 		}
+
+		// ===========================================================
+		// Getter & Setter
+		// ===========================================================
+
+		public void setEngine(final Engine pEngine) {
+			this.mEngine = pEngine;
+		}
+
+		// ===========================================================
+		// Methods for/from SuperClass/Interfaces
+		// ===========================================================
 
 		@Override
 		public void run() {
-			android.os.Process.setThreadPriority(Engine.this.mEngineOptions.getUpdateThreadPriority());
+			android.os.Process.setThreadPriority(this.mEngine.getEngineOptions().getUpdateThreadPriority());
 			try {
 				while(true) {
-					Engine.this.onTickUpdate();
+					this.mRunnableHandler.onUpdate(0);
+					this.mEngine.onTickUpdate();
 				}
 			} catch (final InterruptedException e) {
-				Debug.d("UpdateThread interrupted. Don't worry - this Exception is most likely expected!", e);
+				if(BuildConfig.DEBUG) {
+					Debug.d(this.getClass().getSimpleName() + " interrupted. Don't worry - this " + e.getClass().getSimpleName() + " is most likely expected!", e);
+				}
 				this.interrupt();
 			}
 		}
+
+		// ===========================================================
+		// Methods
+		// ===========================================================
+
+		public void postRunnable(final Runnable pRunnable) {
+			this.mRunnableHandler.postRunnable(pRunnable);
+		}
+
+		// ===========================================================
+		// Inner and Anonymous Classes
+		// ===========================================================
 	}
 
-	private static class State {
-		boolean mDrawing = false;
+	public class EngineDestroyedException extends InterruptedException {
+		// ===========================================================
+		// Constants
+		// ===========================================================
 
-		public synchronized void notifyCanDraw() {
-			// Debug.d(">>> notifyCanDraw");
-			this.mDrawing = true;
-			this.notifyAll();
-			// Debug.d("<<< notifyCanDraw");
+		private static final long serialVersionUID = -4691263961728972560L;
+
+		// ===========================================================
+		// Fields
+		// ===========================================================
+
+		// ===========================================================
+		// Constructors
+		// ===========================================================
+
+		// ===========================================================
+		// Getter & Setter
+		// ===========================================================
+
+		// ===========================================================
+		// Methods for/from SuperClass/Interfaces
+		// ===========================================================
+
+		// ===========================================================
+		// Methods
+		// ===========================================================
+
+		// ===========================================================
+		// Inner and Anonymous Classes
+		// ===========================================================
+	}
+
+	public static class EngineLock extends ReentrantLock {
+		// ===========================================================
+		// Constants
+		// ===========================================================
+
+		private static final long serialVersionUID = 671220941302523934L;
+
+		// ===========================================================
+		// Fields
+		// ===========================================================
+
+		final Condition mDrawingCondition = this.newCondition();
+		final AtomicBoolean mDrawing = new AtomicBoolean(false);
+
+		// ===========================================================
+		// Constructors
+		// ===========================================================
+
+		public EngineLock(final boolean pFair) {
+			super(pFair);
 		}
 
-		public synchronized void notifyCanUpdate() {
-			// Debug.d(">>> notifyCanUpdate");
-			this.mDrawing = false;
-			this.notifyAll();
-			// Debug.d("<<< notifyCanUpdate");
+		// ===========================================================
+		// Getter & Setter
+		// ===========================================================
+
+		// ===========================================================
+		// Methods for/from SuperClass/Interfaces
+		// ===========================================================
+
+		// ===========================================================
+		// Methods
+		// ===========================================================
+
+		void notifyCanDraw() {
+			this.mDrawing.set(true);
+			this.mDrawingCondition.signalAll();
 		}
 
-		public synchronized void waitUntilCanDraw() throws InterruptedException {
-			// Debug.d(">>> waitUntilCanDraw");
-			while(!this.mDrawing) {
-				this.wait();
+		void notifyCanUpdate() {
+			this.mDrawing.set(false);
+			this.mDrawingCondition.signalAll();
+		}
+
+		void waitUntilCanDraw() throws InterruptedException {
+			while(!this.mDrawing.get()) {
+				this.mDrawingCondition.await();
 			}
-			// Debug.d("<<< waitUntilCanDraw");
 		}
 
-		public synchronized void waitUntilCanUpdate() throws InterruptedException {
-			// Debug.d(">>> waitUntilCanUpdate");
-			while(this.mDrawing) {
-				this.wait();
+		void waitUntilCanUpdate() throws InterruptedException {
+			while(this.mDrawing.get()) {
+				this.mDrawingCondition.await();
 			}
-			// Debug.d("<<< waitUntilCanUpdate");
 		}
+
+		// ===========================================================
+		// Inner and Anonymous Classes
+		// ===========================================================
 	}
 }

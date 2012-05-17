@@ -9,6 +9,7 @@ import org.andengine.opengl.texture.TextureOptions;
 import org.andengine.opengl.texture.region.ITextureRegion;
 import org.andengine.opengl.util.GLState;
 import org.andengine.opengl.vbo.IVertexBufferObject;
+import org.andengine.opengl.vbo.VertexBufferObjectManager;
 
 /**
  * (c) 2010 Nicolas Gramlich
@@ -26,11 +27,10 @@ public abstract class Shape extends Entity implements IShape {
 	// Fields
 	// ===========================================================
 
-	protected int mSourceBlendFunction = IShape.BLENDFUNCTION_SOURCE_DEFAULT;
-	protected int mDestinationBlendFunction = IShape.BLENDFUNCTION_DESTINATION_DEFAULT;
+	protected int mBlendFunctionSource = IShape.BLENDFUNCTION_SOURCE_DEFAULT;
+	protected int mBlendFunctionDestination = IShape.BLENDFUNCTION_DESTINATION_DEFAULT;
 
 	protected boolean mBlendingEnabled = false;
-	protected boolean mCullingEnabled = false;
 
 	protected ShaderProgram mShaderProgram;
 
@@ -59,19 +59,29 @@ public abstract class Shape extends Entity implements IShape {
 	}
 
 	@Override
-	public void setBlendFunction(final int pSourceBlendFunction, final int pDestinationBlendFunction) {
-		this.mSourceBlendFunction = pSourceBlendFunction;
-		this.mDestinationBlendFunction = pDestinationBlendFunction;
+	public int getBlendFunctionSource() {
+		return this.mBlendFunctionSource;
 	}
 
 	@Override
-	public boolean isCullingEnabled() {
-		return this.mCullingEnabled;
+	public void setBlendFunctionSource(final int pBlendFunctionSource) {
+		this.mBlendFunctionSource = pBlendFunctionSource;
 	}
 
 	@Override
-	public void setCullingEnabled(final boolean pCullingEnabled) {
-		this.mCullingEnabled = pCullingEnabled;
+	public int getBlendFunctionDestination() {
+		return this.mBlendFunctionDestination;
+	}
+
+	@Override
+	public void setBlendFunctionDestination(final int pBlendFunctionDestination) {
+		this.mBlendFunctionDestination = pBlendFunctionDestination;
+	}
+
+	@Override
+	public void setBlendFunction(final int pBlendFunctionSource, final int pBlendFunctionDestination) {
+		this.mBlendFunctionSource = pBlendFunctionSource;
+		this.mBlendFunctionDestination = pBlendFunctionDestination;
 	}
 
 	@Override
@@ -84,6 +94,11 @@ public abstract class Shape extends Entity implements IShape {
 		this.mShaderProgram = pShaderProgram;
 	}
 
+	@Override
+	public VertexBufferObjectManager getVertexBufferObjectManager() {
+		return this.getVertexBufferObject().getVertexBufferObjectManager();
+	}
+
 	// ===========================================================
 	// Methods for/from SuperClass/Interfaces
 	// ===========================================================
@@ -94,7 +109,7 @@ public abstract class Shape extends Entity implements IShape {
 	protected void preDraw(final GLState pGLState, final Camera pCamera) {
 		if(this.mBlendingEnabled) {
 			pGLState.enableBlend();
-			pGLState.blendFunction(this.mSourceBlendFunction, this.mDestinationBlendFunction);
+			pGLState.blendFunction(this.mBlendFunctionSource, this.mBlendFunctionDestination);
 		}
 	}
 
@@ -110,37 +125,21 @@ public abstract class Shape extends Entity implements IShape {
 		return false;
 	}
 
-	/**
-	 * Will only be performed if {@link Shape#isCullingEnabled()} is true.
-	 * @param pCamera
-	 * @return <code>true</code> when this object is visible by the {@link Camera}, <code>false</code> otherwise.
-	 */
-	protected abstract boolean isCulled(final Camera pCamera);
-
-	@Override
-	protected void onManagedDraw(final GLState pGLState, final Camera pCamera) {
-		if(!this.mCullingEnabled || !this.isCulled(pCamera)) {
-			super.onManagedDraw(pGLState, pCamera);
-		}
-	}
-
 	@Override
 	public void reset() {
 		super.reset();
 
-		this.mSourceBlendFunction = IShape.BLENDFUNCTION_SOURCE_DEFAULT;
-		this.mDestinationBlendFunction = IShape.BLENDFUNCTION_DESTINATION_DEFAULT;
+		this.mBlendFunctionSource = IShape.BLENDFUNCTION_SOURCE_DEFAULT;
+		this.mBlendFunctionDestination = IShape.BLENDFUNCTION_DESTINATION_DEFAULT;
 	}
 
 	@Override
-	protected void finalize() throws Throwable {
-		super.finalize();
+	public void dispose() {
+		super.dispose();
 
 		final IVertexBufferObject vertexBufferObject = this.getVertexBufferObject();
-		if(vertexBufferObject != null) {
-			if(vertexBufferObject.isManaged()) {
-				vertexBufferObject.unload();
-			}
+		if((vertexBufferObject != null) && vertexBufferObject.isAutoDispose() && !vertexBufferObject.isDisposed()) {
+			vertexBufferObject.dispose();
 		}
 	}
 
@@ -157,7 +156,7 @@ public abstract class Shape extends Entity implements IShape {
 	}
 
 	protected void initBlendFunction(final TextureOptions pTextureOptions) {
-		if(pTextureOptions.mPreMultipyAlpha) {
+		if(pTextureOptions.mPreMultiplyAlpha) {
 			this.setBlendFunction(IShape.BLENDFUNCTION_SOURCE_PREMULTIPLYALPHA_DEFAULT, IShape.BLENDFUNCTION_DESTINATION_PREMULTIPLYALPHA_DEFAULT);
 		}
 	}

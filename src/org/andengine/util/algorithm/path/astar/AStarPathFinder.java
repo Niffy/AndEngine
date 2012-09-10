@@ -4,12 +4,13 @@ import org.andengine.util.adt.list.ShiftList;
 import org.andengine.util.adt.map.LongSparseArray;
 import org.andengine.util.adt.queue.IQueue;
 import org.andengine.util.adt.queue.SortedQueue;
-import org.andengine.util.adt.queue.UniqueQueue;
 import org.andengine.util.adt.spatial.bounds.util.IntBoundsUtils;
 import org.andengine.util.algorithm.path.ICostFunction;
 import org.andengine.util.algorithm.path.IPathFinder;
 import org.andengine.util.algorithm.path.IPathFinderMap;
 import org.andengine.util.algorithm.path.Path;
+
+import android.util.Log;
 
 /**
  * TODO Nodes could be recycle in a pool.
@@ -63,23 +64,34 @@ public class AStarPathFinder<T> implements IPathFinder<T> {
 
 		final long fromNodeID = fromNode.mID;
 		final long toNodeID = Node.calculateID(pToX, pToY);
+		Log.i("ASTAR", "fromNodeID: " + fromNodeID);
+		Log.i("ASTAR", "toNodeID: " + toNodeID);
 
 		final LongSparseArray<Node> visitedNodes = new LongSparseArray<Node>();
 		final LongSparseArray<Node> openNodes = new LongSparseArray<Node>();
 		final IQueue<Node> sortedOpenNodes = new SortedQueue<Node>(new ShiftList<Node>());
-
+		
 		final boolean allowDiagonalMovement = pAllowDiagonal;
 
 		/* Initialize algorithm. */
 		openNodes.put(fromNodeID, fromNode);
 		sortedOpenNodes.enter(fromNode);
+		Log.i("ASTAR", "sortedOpen. size: " + sortedOpenNodes.size());
+		Log.i("ASTAR", "openNodes. size: " + openNodes.size());
 
 		Node currentNode = null;
 		while(openNodes.size() > 0) {
 			/* The first Node in the open list is the one with the lowest cost. */
 			currentNode = sortedOpenNodes.poll();
+			if(currentNode ==null){
+				//Log.i("ASTAR", "currentNode is null");
+			}else{
+				//Log.i("ASTAR", "currentNode not null");
+				//Log.i("ASTAR", "X: " + currentNode.mX + " Y: " + currentNode.mY);
+			}
 			final long currentNodeID = currentNode.mID;
 			if(currentNodeID == toNodeID) {
+				//Log.i("ASTAR", "currentNodeID = toNodeID");
 				break;
 			}
 
@@ -87,12 +99,18 @@ public class AStarPathFinder<T> implements IPathFinder<T> {
 
 			/* Loop over all neighbors of this position. */
 			for(int dX = -1; dX <= 1; dX++) {
+				//Log.i("ASTAR", "New Iteration");
+				//Log.i("ASTAR", "DX: " + dX);
 				for(int dY = -1; dY <= 1; dY++) {
+					//Log.i("ASTAR", "DY: " + dY);
 					if((dX == 0) && (dY == 0)) {
+						//Log.i("ASTAR", "DX == 0 && DY == 0: ");
+						//We're at a stand still
 						continue;
 					}
 
 					if(!allowDiagonalMovement && (dX != 0) && (dY != 0)) {
+						//Log.i("ASTAR", "no dialg DX != 0 && DY != 0: ");
 						continue;
 					}
 
@@ -101,6 +119,10 @@ public class AStarPathFinder<T> implements IPathFinder<T> {
 					final long neighborNodeID = Node.calculateID(neighborNodeX, neighborNodeY);
 
 					if(!IntBoundsUtils.contains(pXMin, pYMin, pXMax, pYMax, neighborNodeX, neighborNodeY) || pPathFinderMap.isBlocked(neighborNodeX, neighborNodeY, pEntity)) {
+						boolean contains = IntBoundsUtils.contains(pXMin, pYMin, pXMax, pYMax, neighborNodeX, neighborNodeY);
+						boolean blocked = pPathFinderMap.isBlocked(neighborNodeX, neighborNodeY, pEntity);
+						//Log.i("ASTAR", "contains: " + contains + " || " + " isBlocked " + blocked);
+						
 						continue;
 					}
 

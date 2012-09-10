@@ -1,5 +1,7 @@
 package org.andengine.util.algorithm.path;
 
+import android.util.Log;
+
 
 /**
  * (c) 2010 Nicolas Gramlich
@@ -101,6 +103,9 @@ public class Path {
 		} else {
 			final int dX = this.getX(pIndex + 1) - this.getX(pIndex);
 			final int dY = this.getY(pIndex + 1) - this.getY(pIndex);
+			Log.i("PATH", String.format("dX = %d x+1 = %d x = %d", dX, this.getX(pIndex + 1), this.getX(pIndex)));
+			Log.i("PATH", String.format("dY = %d y+1 = %d y = %d", dY, this.getY(pIndex + 1), this.getY(pIndex)));
+			Log.i("PATH", String.format("Result: %s ", Direction.fromDelta(dX, dY).toString()));
 			return Direction.fromDelta(dX, dY);
 		}
 	}

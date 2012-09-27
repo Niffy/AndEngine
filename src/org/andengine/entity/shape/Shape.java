@@ -33,6 +33,8 @@ public abstract class Shape extends Entity implements IShape {
 	protected boolean mBlendingEnabled = false;
 
 	protected ShaderProgram mShaderProgram;
+	
+	protected ITouchAreaListener mTouchAreaInterface;
 
 	// ===========================================================
 	// Constructors
@@ -122,7 +124,11 @@ public abstract class Shape extends Entity implements IShape {
 
 	@Override
 	public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) {
-		return false;
+		if(this.mTouchAreaInterface != null){
+			return this.mTouchAreaInterface.onAreaTouched(pSceneTouchEvent, pTouchAreaLocalX, pTouchAreaLocalY);
+		}else{
+			return false;
+		}
 	}
 
 	@Override
@@ -159,6 +165,10 @@ public abstract class Shape extends Entity implements IShape {
 		if(pTextureOptions.mPreMultiplyAlpha) {
 			this.setBlendFunction(IShape.BLENDFUNCTION_SOURCE_PREMULTIPLYALPHA_DEFAULT, IShape.BLENDFUNCTION_DESTINATION_PREMULTIPLYALPHA_DEFAULT);
 		}
+	}
+	
+	public void setOnTouchAreaInterface(final ITouchAreaListener pTouchAreaListener){
+		this.mTouchAreaInterface = pTouchAreaListener;
 	}
 
 	// ===========================================================

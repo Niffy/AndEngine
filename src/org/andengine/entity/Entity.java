@@ -3,6 +3,7 @@ package org.andengine.entity;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.andengine.engine.ITimeModifiedUpdater;
 import org.andengine.engine.camera.Camera;
 import org.andengine.engine.handler.IUpdateHandler;
 import org.andengine.engine.handler.UpdateHandlerList;
@@ -98,7 +99,9 @@ public class Entity implements IEntity {
 	private Transformation mSceneToLocalTransformation;
 
 	private Object mUserData;
-
+	
+	protected boolean mIsRegisteredForTimeModifiedUpdate = false;
+	protected ITimeModifiedUpdater mTimeModifiedUpdater;
 	// ===========================================================
 	// Constructors
 	// ===========================================================
@@ -1238,6 +1241,21 @@ public class Entity implements IEntity {
 		}
 	}
 
+	@Override
+	public void registerForTimeModifier(boolean pRegisterForTimeModifier) {
+		this.mIsRegisteredForTimeModifiedUpdate = pRegisterForTimeModifier;
+	}
+
+	@Override
+	public boolean isRegisteredForTimeModifier() {
+		return this.mIsRegisteredForTimeModifiedUpdate;
+	}
+	
+	@Override
+	public void setTimeModifedUpdater(ITimeModifiedUpdater pTimeModifiedUpdater) {
+		this.mTimeModifiedUpdater = pTimeModifiedUpdater;
+	}
+	
 	// ===========================================================
 	// Methods
 	// ===========================================================
@@ -1398,8 +1416,30 @@ public class Entity implements IEntity {
 		if((this.mChildren != null) && !this.mChildrenIgnoreUpdate) {
 			final SmartList<IEntity> entities = this.mChildren;
 			final int entityCount = entities.size();
+			final int timeModifier;
+			if(this.mTimeModifiedUpdater != null){
+				//Got the time modified updater so get time modifier.
+				timeModifier = this.mTimeModifiedUpdater.getTimeModifier();
+			}else{
+				//Want a time modified update but cannot get time modifier, so set to 1
+				timeModifier = 1;
+			}
+			
 			for(int i = 0; i < entityCount; i++) {
-				entities.get(i).onUpdate(pSecondsElapsed);
+				if(this.isRegisteredForTimeModifier()){
+					//This entity has a time registered update, so update children with same update seconds.
+					entities.get(i).onUpdate(pSecondsElapsed);	
+				}else{
+					//This entity is not registered for a time modified update.
+					if(entities.get(i).isRegisteredForTimeModifier()){
+						//Child is registered for a time modified update.
+						entities.get(i).onUpdate(pSecondsElapsed * timeModifier);
+					}else{
+						//Isn't so don't update with a time modified update
+						entities.get(i).onUpdate(pSecondsElapsed);
+					}
+				}
+				//entities.get(i).onUpdate(pSecondsElapsed);
 			}
 		}
 	}

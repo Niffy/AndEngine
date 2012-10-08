@@ -66,7 +66,7 @@ import android.view.WindowManager;
  * @author Nicolas Gramlich
  * @since 12:21:31 - 08.03.2010
  */
-public class Engine implements SensorEventListener, OnTouchListener, ITouchEventCallback, LocationListener {
+public class Engine implements SensorEventListener, OnTouchListener, ITouchEventCallback, LocationListener, ITimeModifiedUpdater {
 	// ===========================================================
 	// Constants
 	// ===========================================================
@@ -122,6 +122,8 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	protected int mSurfaceWidth = 1; // 1 to prevent accidental DIV/0
 	protected int mSurfaceHeight = 1; // 1 to prevent accidental DIV/0
 
+	protected int mTimeModifier = 1;
+	
 	// ===========================================================
 	// Constructors
 	// ===========================================================
@@ -296,6 +298,8 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	}
 
 	public void registerUpdateHandler(final IUpdateHandler pUpdateHandler) {
+		//String name = pUpdateHandler.getClass().getCanonicalName();
+		//Debug.i("updater handler registered " + name);
 		this.mUpdateHandlers.add(pUpdateHandler);
 	}
 
@@ -576,14 +580,15 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 	}
 
 	public void onUpdate(final long pNanosecondsElapsed) throws InterruptedException {
-		final float pSecondsElapsed = pNanosecondsElapsed * TimeConstants.SECONDS_PER_NANOSECOND;
-
+		final float pSecondsElapsed_Normal = (pNanosecondsElapsed * TimeConstants.SECONDS_PER_NANOSECOND);
+		final float pSecondsElapsed = pSecondsElapsed_Normal * this.mTimeModifier;
+		
 		this.mSecondsElapsedTotal += pSecondsElapsed;
 		this.mLastTick += pNanosecondsElapsed;
 
-		this.mTouchController.onUpdate(pSecondsElapsed);
-		this.onUpdateUpdateHandlers(pSecondsElapsed);
-		this.onUpdateScene(pSecondsElapsed);
+		this.mTouchController.onUpdate(pSecondsElapsed_Normal);
+		this.onUpdateUpdateHandlers(pSecondsElapsed_Normal);
+		this.onUpdateScene(pSecondsElapsed_Normal);
 	}
 
 	protected void onUpdateScene(final float pSecondsElapsed) {
@@ -796,7 +801,49 @@ public class Engine implements SensorEventListener, OnTouchListener, ITouchEvent
 		final Sensor sensor = pSensorManager.getSensorList(pType).get(0);
 		pSensorManager.unregisterListener(this, sensor);
 	}
-
+	
+	/**
+	 * Set the time modifier to affect updates.   
+	 * @param pTimeModifier {@link Integer} of new time modifier
+	 */
+	public void setTimeModifer(final int pTimeModifier){
+		if(pTimeModifier < 1){
+			//Will not go below 1
+		}else{
+			this.mTimeModifier = pTimeModifier;
+		}
+		
+	}
+	/**
+	 * Get the current time modifier in use.
+	 * @see ITimeModifiedUpdater#getTimeModifier()
+	 * @return {@link Integer} of time modifier in use.
+	 */
+	@Override
+	public int getTimeModifier(){
+		return this.mTimeModifier;
+	}
+	/**
+	 * Increase the time modifier by 1;
+	 */
+	public void increaseTimeModifier(){
+		this.mTimeModifier++;
+	}
+	/**
+	 * Decrease the time modifier by 1;
+	 */
+	public void decreaseTimeModifier(){
+		if(this.mTimeModifier > 1){
+			//Has to be above 1 to decrease,
+			this.mTimeModifier--;
+		}
+	}
+	/**
+	 * Set the time modifier to 1;
+	 */
+	public void resetTimeModifier(){
+		this.mTimeModifier = 1;
+	}
 	// ===========================================================
 	// Inner and Anonymous Classes
 	// ===========================================================

@@ -1,14 +1,15 @@
 package org.andengine.util.algorithm.path;
 
+import org.andengine.util.adt.pool.GenericPool;
+import org.andengine.util.algorithm.path.astar.tile.pool.IPool;
 
 /**
- * (c) 2010 Nicolas Gramlich
- * (c) 2011 Zynga Inc.
+ * (c) 2010 Nicolas Gramlich (c) 2011 Zynga Inc.
  * 
  * @author Nicolas Gramlich
  * @since 23:00:24 - 16.08.2010
  */
-public class Path {
+public class Path implements IPool {
 	// ===========================================================
 	// Constants
 	// ===========================================================
@@ -17,14 +18,23 @@ public class Path {
 	// Fields
 	// ===========================================================
 
-	private final int[] mXs;
-	private final int[] mYs;
+	private int[] mXs;
+	private int[] mYs;
+	private GenericPool<Path> mPool;
 
 	// ===========================================================
 	// Constructors
 	// ===========================================================
 
+	public Path(GenericPool<Path> pPool) {
+		this.mPool = pPool;
+	}
+
 	public Path(final int pLength) {
+		this.setup(pLength);
+	}
+
+	public void setup(final int pLength) {
 		this.mXs = new int[pLength];
 		this.mYs = new int[pLength];
 	}
@@ -66,6 +76,22 @@ public class Path {
 	// ===========================================================
 
 	// ===========================================================
+	// IPool
+	// ===========================================================
+	@Override
+	public void reset() {
+		this.mXs = null;
+		this.mYs = null;
+	}
+
+	@Override
+	public void destroy() {
+		if (this.mPool != null) {
+			this.mPool.recyclePoolItem(this);
+		}
+	}
+
+	// ===========================================================
 	// Methods
 	// ===========================================================
 
@@ -77,8 +103,8 @@ public class Path {
 	public boolean contains(final int pX, final int pY) {
 		final int[] xs = this.mXs;
 		final int[] ys = this.mYs;
-		for(int i = this.getLength() - 1; i >= 0; i--) {
-			if(xs[i] == pX && ys[i] == pY) {
+		for (int i = this.getLength() - 1; i >= 0; i--) {
+			if (xs[i] == pX && ys[i] == pY) {
 				return true;
 			}
 		}
@@ -86,7 +112,7 @@ public class Path {
 	}
 
 	public Direction getDirectionToPreviousStep(final int pIndex) {
-		if(pIndex == 0) {
+		if (pIndex == 0) {
 			return null;
 		} else {
 			final int dX = this.getX(pIndex - 1) - this.getX(pIndex);
@@ -96,7 +122,7 @@ public class Path {
 	}
 
 	public Direction getDirectionToNextStep(final int pIndex) {
-		if(pIndex == this.getLength() - 1) {
+		if (pIndex == this.getLength() - 1) {
 			return null;
 		} else {
 			final int dX = this.getX(pIndex + 1) - this.getX(pIndex);

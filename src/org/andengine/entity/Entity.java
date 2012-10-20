@@ -17,10 +17,8 @@ import org.andengine.util.adt.transformation.Transformation;
 import org.andengine.util.call.ParameterCallable;
 import org.andengine.util.color.Color;
 
-
 /**
- * (c) 2010 Nicolas Gramlich
- * (c) 2011 Zynga Inc.
+ * (c) 2010 Nicolas Gramlich (c) 2011 Zynga Inc.
  * 
  * @author Nicolas Gramlich
  * @since 12:00:48 - 08.03.2010
@@ -99,9 +97,10 @@ public class Entity implements IEntity {
 	private Transformation mSceneToLocalTransformation;
 
 	private Object mUserData;
-	
+
 	protected boolean mIsRegisteredForTimeModifiedUpdate = false;
 	protected ITimeModifiedUpdater mTimeModifiedUpdater;
+
 	// ===========================================================
 	// Constructors
 	// ===========================================================
@@ -220,6 +219,9 @@ public class Entity implements IEntity {
 	@Override
 	public void setZIndex(final int pZIndex) {
 		this.mZIndex = pZIndex;
+		if (this.mParent != null) {
+			this.mParent.sortChildren();
+		}
 	}
 
 	@Override
@@ -485,7 +487,8 @@ public class Entity implements IEntity {
 
 	@Override
 	public boolean isRotatedOrScaledOrSkewed() {
-		return (this.mRotation != 0) || (this.mScaleX != 1) || (this.mScaleY != 1) || (this.mSkewX != 0) || (this.mSkewY != 0);
+		return (this.mRotation != 0) || (this.mScaleX != 1) || (this.mScaleY != 1) || (this.mSkewX != 0)
+				|| (this.mSkewY != 0);
 	}
 
 	@Override
@@ -521,73 +524,90 @@ public class Entity implements IEntity {
 	}
 
 	/**
-	 * @param pRed from <code>0.0f</code> to <code>1.0f</code>
+	 * @param pRed
+	 *            from <code>0.0f</code> to <code>1.0f</code>
 	 */
 	@Override
 	public void setRed(final float pRed) {
-		if(this.mColor.setRedChecking(pRed)) {
+		if (this.mColor.setRedChecking(pRed)) {
 			this.onUpdateColor();
 		}
 	}
 
 	/**
-	 * @param pGreen from <code>0.0f</code> to <code>1.0f</code>
+	 * @param pGreen
+	 *            from <code>0.0f</code> to <code>1.0f</code>
 	 */
 	@Override
 	public void setGreen(final float pGreen) {
-		if(this.mColor.setGreenChecking(pGreen)) {
+		if (this.mColor.setGreenChecking(pGreen)) {
 			this.onUpdateColor();
 		}
 	}
 
 	/**
-	 * @param pBlue from <code>0.0f</code> to <code>1.0f</code>
+	 * @param pBlue
+	 *            from <code>0.0f</code> to <code>1.0f</code>
 	 */
 	@Override
 	public void setBlue(final float pBlue) {
-		if(this.mColor.setBlueChecking(pBlue)) {
+		if (this.mColor.setBlueChecking(pBlue)) {
 			this.onUpdateColor();
 		}
 	}
 
 	/**
-	 * @param pAlpha from <code>0.0f</code> (transparent) to <code>1.0f</code> (opaque)
+	 * @param pAlpha
+	 *            from <code>0.0f</code> (transparent) to <code>1.0f</code>
+	 *            (opaque)
 	 */
 	@Override
 	public void setAlpha(final float pAlpha) {
-		if(this.mColor.setAlphaChecking(pAlpha)) {
+		if (this.mColor.setAlphaChecking(pAlpha)) {
 			this.onUpdateColor();
 		}
 	}
 
 	/**
-	 * @param pRed from <code>0.0f</code> to <code>1.0f</code>
-	 * @param pGreen from <code>0.0f</code> to <code>1.0f</code>
-	 * @param pBlue from <code>0.0f</code> to <code>1.0f</code>
+	 * @param pRed
+	 *            from <code>0.0f</code> to <code>1.0f</code>
+	 * @param pGreen
+	 *            from <code>0.0f</code> to <code>1.0f</code>
+	 * @param pBlue
+	 *            from <code>0.0f</code> to <code>1.0f</code>
 	 */
 	@Override
 	public void setColor(final float pRed, final float pGreen, final float pBlue) {
-		if(this.mColor.setChecking(pRed, pGreen, pBlue)) { // TODO Is this check worth it?
+		if (this.mColor.setChecking(pRed, pGreen, pBlue)) { // TODO Is this
+															// check worth it?
 			this.onUpdateColor();
 		}
 	}
 
 	/**
-	 * @param pRed from <code>0.0f</code> to <code>1.0f</code>
-	 * @param pGreen from <code>0.0f</code> to <code>1.0f</code>
-	 * @param pBlue from <code>0.0f</code> to <code>1.0f</code>
-	 * @param pAlpha from <code>0.0f</code> (transparent) to <code>1.0f</code> (opaque)
+	 * @param pRed
+	 *            from <code>0.0f</code> to <code>1.0f</code>
+	 * @param pGreen
+	 *            from <code>0.0f</code> to <code>1.0f</code>
+	 * @param pBlue
+	 *            from <code>0.0f</code> to <code>1.0f</code>
+	 * @param pAlpha
+	 *            from <code>0.0f</code> (transparent) to <code>1.0f</code>
+	 *            (opaque)
 	 */
 	@Override
 	public void setColor(final float pRed, final float pGreen, final float pBlue, final float pAlpha) {
-		if(this.mColor.setChecking(pRed, pGreen, pBlue, pAlpha)) { // TODO Is this check worth it?
+		if (this.mColor.setChecking(pRed, pGreen, pBlue, pAlpha)) { // TODO Is
+																	// this
+																	// check
+																	// worth it?
 			this.onUpdateColor();
 		}
 	}
 
 	@Override
 	public int getChildCount() {
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			return 0;
 		}
 		return this.mChildren.size();
@@ -595,12 +615,12 @@ public class Entity implements IEntity {
 
 	@Override
 	public IEntity getChildByTag(final int pTag) {
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			return null;
 		}
-		for(int i = this.mChildren.size() - 1; i >= 0; i--) {
+		for (int i = this.mChildren.size() - 1; i >= 0; i--) {
 			final IEntity child = this.mChildren.get(i);
-			if(child.getTag() == pTag) {
+			if (child.getTag() == pTag) {
 				return child;
 			}
 		}
@@ -609,15 +629,15 @@ public class Entity implements IEntity {
 
 	@Override
 	public IEntity getChildByIndex(final int pIndex) {
-	    if(this.mChildren == null) {
-	        return null;
-	    }
-	    return this.mChildren.get(pIndex);
+		if (this.mChildren == null) {
+			return null;
+		}
+		return this.mChildren.get(pIndex);
 	}
 
 	@Override
 	public IEntity getChildByMatcher(final IEntityMatcher pEntityMatcher) {
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			return null;
 		}
 		return this.mChildren.get(pEntityMatcher);
@@ -625,7 +645,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public IEntity getFirstChild() {
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			return null;
 		}
 		return this.mChildren.get(0);
@@ -633,7 +653,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public IEntity getLastChild() {
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			return null;
 		}
 		return this.mChildren.get(this.mChildren.size() - 1);
@@ -653,14 +673,14 @@ public class Entity implements IEntity {
 	@Override
 	public <S extends IEntity> S queryFirstForSubclass(final IEntityMatcher pEntityMatcher) {
 		final int childCount = this.getChildCount();
-		for(int i = 0; i < childCount; i++) {
+		for (int i = 0; i < childCount; i++) {
 			final IEntity child = this.mChildren.get(i);
-			if(pEntityMatcher.matches(child)) {
-				return (S)child;
+			if (pEntityMatcher.matches(child)) {
+				return (S) child;
 			}
 
 			final S childQueryFirst = child.queryFirstForSubclass(pEntityMatcher);
-			if(childQueryFirst != null) {
+			if (childQueryFirst != null) {
 				return childQueryFirst;
 			}
 		}
@@ -671,9 +691,9 @@ public class Entity implements IEntity {
 	@Override
 	public <L extends List<IEntity>> L query(final IEntityMatcher pEntityMatcher, final L pResult) {
 		final int childCount = this.getChildCount();
-		for(int i = 0; i < childCount; i++) {
+		for (int i = 0; i < childCount; i++) {
 			final IEntity child = this.mChildren.get(i);
-			if(pEntityMatcher.matches(child)) {
+			if (pEntityMatcher.matches(child)) {
 				pResult.add(child);
 			}
 
@@ -684,18 +704,20 @@ public class Entity implements IEntity {
 	}
 
 	@Override
-	public <S extends IEntity> ArrayList<S> queryForSubclass(final IEntityMatcher pEntityMatcher) throws ClassCastException {
+	public <S extends IEntity> ArrayList<S> queryForSubclass(final IEntityMatcher pEntityMatcher)
+			throws ClassCastException {
 		return this.queryForSubclass(pEntityMatcher, new ArrayList<S>());
 	}
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public <L extends List<S>, S extends IEntity> L queryForSubclass(final IEntityMatcher pEntityMatcher, final L pResult) throws ClassCastException {
+	public <L extends List<S>, S extends IEntity> L queryForSubclass(final IEntityMatcher pEntityMatcher,
+			final L pResult) throws ClassCastException {
 		final int childCount = this.getChildCount();
-		for(int i = 0; i < childCount; i++) {
+		for (int i = 0; i < childCount; i++) {
 			final IEntity child = this.mChildren.get(i);
-			if(pEntityMatcher.matches(child)) {
-				pResult.add((S)child);
+			if (pEntityMatcher.matches(child)) {
+				pResult.add((S) child);
 			}
 
 			child.queryForSubclass(pEntityMatcher, pResult);
@@ -707,7 +729,7 @@ public class Entity implements IEntity {
 	@Override
 	public boolean detachSelf() {
 		final IEntity parent = this.mParent;
-		if(parent != null) {
+		if (parent != null) {
 			return parent.detachChild(this);
 		} else {
 			return false;
@@ -716,7 +738,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public void detachChildren() {
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			return;
 		}
 		this.mChildren.clear(Entity.PARAMETERCALLABLE_DETACHCHILD);
@@ -726,7 +748,7 @@ public class Entity implements IEntity {
 	public void attachChild(final IEntity pEntity) throws IllegalStateException {
 		this.assertEntityHasNoParent(pEntity);
 
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			this.allocateChildren();
 		}
 		this.mChildren.add(pEntity);
@@ -741,10 +763,10 @@ public class Entity implements IEntity {
 
 	@Override
 	public void sortChildren(final boolean pImmediate) {
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			return;
 		}
-		if(pImmediate) {
+		if (pImmediate) {
 			ZIndexSorter.getInstance().sort(this.mChildren);
 		} else {
 			this.mChildrenSortPending = true;
@@ -753,7 +775,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public void sortChildren(final IEntityComparator pEntityComparator) {
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			return;
 		}
 		ZIndexSorter.getInstance().sort(this.mChildren, pEntityComparator);
@@ -761,7 +783,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public boolean detachChild(final IEntity pEntity) {
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			return false;
 		}
 		return this.mChildren.remove(pEntity, Entity.PARAMETERCALLABLE_DETACHCHILD);
@@ -769,11 +791,11 @@ public class Entity implements IEntity {
 
 	@Override
 	public IEntity detachChild(final int pTag) {
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			return null;
 		}
-		for(int i = this.mChildren.size() - 1; i >= 0; i--) {
-			if(this.mChildren.get(i).getTag() == pTag) {
+		for (int i = this.mChildren.size() - 1; i >= 0; i--) {
+			if (this.mChildren.get(i).getTag() == pTag) {
 				final IEntity removed = this.mChildren.remove(i);
 				Entity.PARAMETERCALLABLE_DETACHCHILD.call(removed);
 				return removed;
@@ -784,7 +806,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public IEntity detachChild(final IEntityMatcher pEntityMatcher) {
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			return null;
 		}
 		return this.mChildren.remove(pEntityMatcher, Entity.PARAMETERCALLABLE_DETACHCHILD);
@@ -792,7 +814,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public boolean detachChildren(final IEntityMatcher pEntityMatcher) {
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			return false;
 		}
 		return this.mChildren.removeAll(pEntityMatcher, Entity.PARAMETERCALLABLE_DETACHCHILD);
@@ -800,15 +822,16 @@ public class Entity implements IEntity {
 
 	@Override
 	public void callOnChildren(final IEntityParameterCallable pEntityParameterCallable) {
-		if(this.mChildren == null) {
+		if (this.mChildren == null) {
 			return;
 		}
 		this.mChildren.call(pEntityParameterCallable);
 	}
 
 	@Override
-	public void callOnChildren(final IEntityParameterCallable pEntityParameterCallable, final IEntityMatcher pEntityMatcher) {
-		if(this.mChildren == null) {
+	public void callOnChildren(final IEntityParameterCallable pEntityParameterCallable,
+			final IEntityMatcher pEntityMatcher) {
+		if (this.mChildren == null) {
 			return;
 		}
 		this.mChildren.call(pEntityMatcher, pEntityParameterCallable);
@@ -816,7 +839,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public void registerUpdateHandler(final IUpdateHandler pUpdateHandler) {
-		if(this.mUpdateHandlers == null) {
+		if (this.mUpdateHandlers == null) {
 			this.allocateUpdateHandlers();
 		}
 		this.mUpdateHandlers.add(pUpdateHandler);
@@ -824,7 +847,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public boolean unregisterUpdateHandler(final IUpdateHandler pUpdateHandler) {
-		if(this.mUpdateHandlers == null) {
+		if (this.mUpdateHandlers == null) {
 			return false;
 		}
 		return this.mUpdateHandlers.remove(pUpdateHandler);
@@ -832,15 +855,15 @@ public class Entity implements IEntity {
 
 	@Override
 	public boolean unregisterUpdateHandlers(final IUpdateHandlerMatcher pUpdateHandlerMatcher) {
-		if(this.mUpdateHandlers == null) {
+		if (this.mUpdateHandlers == null) {
 			return false;
 		}
 		return this.mUpdateHandlers.removeAll(pUpdateHandlerMatcher);
 	}
-	
+
 	@Override
 	public int getUpdateHandlerCount() {
-		if(this.mUpdateHandlers == null) {
+		if (this.mUpdateHandlers == null) {
 			return 0;
 		}
 		return this.mUpdateHandlers.size();
@@ -848,7 +871,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public void clearUpdateHandlers() {
-		if(this.mUpdateHandlers == null) {
+		if (this.mUpdateHandlers == null) {
 			return;
 		}
 		this.mUpdateHandlers.clear();
@@ -856,7 +879,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public void registerEntityModifier(final IEntityModifier pEntityModifier) {
-		if(this.mEntityModifiers == null) {
+		if (this.mEntityModifiers == null) {
 			this.allocateEntityModifiers();
 		}
 		this.mEntityModifiers.add(pEntityModifier);
@@ -864,7 +887,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public boolean unregisterEntityModifier(final IEntityModifier pEntityModifier) {
-		if(this.mEntityModifiers == null) {
+		if (this.mEntityModifiers == null) {
 			return false;
 		}
 		return this.mEntityModifiers.remove(pEntityModifier);
@@ -872,15 +895,15 @@ public class Entity implements IEntity {
 
 	@Override
 	public boolean unregisterEntityModifiers(final IEntityModifierMatcher pEntityModifierMatcher) {
-		if(this.mEntityModifiers == null) {
+		if (this.mEntityModifiers == null) {
 			return false;
 		}
 		return this.mEntityModifiers.removeAll(pEntityModifierMatcher);
 	}
-	
+
 	@Override
 	public int getEntityModifierCount() {
-		if(this.mEntityModifiers == null) {
+		if (this.mEntityModifiers == null) {
 			return 0;
 		}
 		return this.mEntityModifiers.size();
@@ -888,7 +911,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public void clearEntityModifiers() {
-		if(this.mEntityModifiers == null) {
+		if (this.mEntityModifiers == null) {
 			return;
 		}
 		this.mEntityModifiers.clear();
@@ -906,18 +929,18 @@ public class Entity implements IEntity {
 
 	@Override
 	public Transformation getLocalToParentTransformation() {
-		if(this.mLocalToParentTransformation == null) {
+		if (this.mLocalToParentTransformation == null) {
 			this.mLocalToParentTransformation = new Transformation();
 		}
 
 		final Transformation localToParentTransformation = this.mLocalToParentTransformation;
-		if(this.mLocalToParentTransformationDirty) {
+		if (this.mLocalToParentTransformationDirty) {
 			localToParentTransformation.setToIdentity();
 
 			/* Scale. */
 			final float scaleX = this.mScaleX;
 			final float scaleY = this.mScaleY;
-			if((scaleX != 1) || (scaleY != 1)) {
+			if ((scaleX != 1) || (scaleY != 1)) {
 				final float scaleCenterX = this.mScaleCenterX;
 				final float scaleCenterY = this.mScaleCenterY;
 
@@ -932,7 +955,7 @@ public class Entity implements IEntity {
 			/* Skew. */
 			final float skewX = this.mSkewX;
 			final float skewY = this.mSkewY;
-			if((skewX != 0) || (skewY != 0)) {
+			if ((skewX != 0) || (skewY != 0)) {
 				final float skewCenterX = this.mSkewCenterX;
 				final float skewCenterY = this.mSkewCenterY;
 
@@ -943,7 +966,7 @@ public class Entity implements IEntity {
 
 			/* Rotation. */
 			final float rotation = this.mRotation;
-			if(rotation != 0) {
+			if (rotation != 0) {
 				final float rotationCenterX = this.mRotationCenterX;
 				final float rotationCenterY = this.mRotationCenterY;
 
@@ -962,12 +985,12 @@ public class Entity implements IEntity {
 
 	@Override
 	public Transformation getParentToLocalTransformation() {
-		if(this.mParentToLocalTransformation == null) {
+		if (this.mParentToLocalTransformation == null) {
 			this.mParentToLocalTransformation = new Transformation();
 		}
 
 		final Transformation parentToLocalTransformation = this.mParentToLocalTransformation;
-		if(this.mParentToLocalTransformationDirty) {
+		if (this.mParentToLocalTransformationDirty) {
 			parentToLocalTransformation.setToIdentity();
 
 			/* Translation. */
@@ -975,7 +998,7 @@ public class Entity implements IEntity {
 
 			/* Rotation. */
 			final float rotation = this.mRotation;
-			if(rotation != 0) {
+			if (rotation != 0) {
 				final float rotationCenterX = this.mRotationCenterX;
 				final float rotationCenterY = this.mRotationCenterY;
 
@@ -987,7 +1010,7 @@ public class Entity implements IEntity {
 			/* Skew. */
 			final float skewX = this.mSkewX;
 			final float skewY = this.mSkewY;
-			if((skewX != 0) || (skewY != 0)) {
+			if ((skewX != 0) || (skewY != 0)) {
 				final float skewCenterX = this.mSkewCenterX;
 				final float skewCenterY = this.mSkewCenterY;
 
@@ -999,12 +1022,21 @@ public class Entity implements IEntity {
 			/* Scale. */
 			final float scaleX = this.mScaleX;
 			final float scaleY = this.mScaleY;
-			if((scaleX != 1) || (scaleY != 1)) {
+			if ((scaleX != 1) || (scaleY != 1)) {
 				final float scaleCenterX = this.mScaleCenterX;
 				final float scaleCenterY = this.mScaleCenterY;
 
 				parentToLocalTransformation.postTranslate(-scaleCenterX, -scaleCenterY);
-				parentToLocalTransformation.postScale(1 / scaleX, 1 / scaleY); // TODO Division could be replaced by a multiplication of 'scale(X/Y)Inverse'...
+				parentToLocalTransformation.postScale(1 / scaleX, 1 / scaleY); // TODO
+																				// Division
+																				// could
+																				// be
+																				// replaced
+																				// by
+																				// a
+																				// multiplication
+																				// of
+																				// 'scale(X/Y)Inverse'...
 				parentToLocalTransformation.postTranslate(scaleCenterX, scaleCenterY);
 			}
 
@@ -1015,7 +1047,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public Transformation getLocalToSceneTransformation() {
-		if(this.mLocalToSceneTransformation == null) {
+		if (this.mLocalToSceneTransformation == null) {
 			this.mLocalToSceneTransformation = new Transformation();
 		}
 
@@ -1024,7 +1056,7 @@ public class Entity implements IEntity {
 		localToSceneTransformation.setTo(this.getLocalToParentTransformation());
 
 		final IEntity parent = this.mParent;
-		if(parent != null) {
+		if (parent != null) {
 			localToSceneTransformation.postConcat(parent.getLocalToSceneTransformation());
 		}
 
@@ -1033,7 +1065,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public Transformation getSceneToLocalTransformation() {
-		if(this.mSceneToLocalTransformation == null) {
+		if (this.mSceneToLocalTransformation == null) {
 			this.mSceneToLocalTransformation = new Transformation();
 		}
 
@@ -1042,7 +1074,7 @@ public class Entity implements IEntity {
 		sceneToLocalTransformation.setTo(this.getParentToLocalTransformation());
 
 		final IEntity parent = this.mParent;
-		if(parent != null) {
+		if (parent != null) {
 			sceneToLocalTransformation.preConcat(parent.getSceneToLocalTransformation());
 		}
 
@@ -1159,14 +1191,14 @@ public class Entity implements IEntity {
 
 	@Override
 	public final void onDraw(final GLState pGLState, final Camera pCamera) {
-		if(this.mVisible && !(this.mCullingEnabled && this.isCulled(pCamera))) {
+		if (this.mVisible && !(this.mCullingEnabled && this.isCulled(pCamera))) {
 			this.onManagedDraw(pGLState, pCamera);
 		}
 	}
 
 	@Override
 	public final void onUpdate(final float pSecondsElapsed) {
-		if(!this.mIgnoreUpdate) {
+		if (!this.mIgnoreUpdate) {
 			this.onManagedUpdate(pSecondsElapsed);
 		}
 	}
@@ -1187,13 +1219,13 @@ public class Entity implements IEntity {
 
 		this.mColor.reset();
 
-		if(this.mEntityModifiers != null) {
+		if (this.mEntityModifiers != null) {
 			this.mEntityModifiers.reset();
 		}
 
-		if(this.mChildren != null) {
+		if (this.mChildren != null) {
 			final SmartList<IEntity> entities = this.mChildren;
-			for(int i = entities.size() - 1; i >= 0; i--) {
+			for (int i = entities.size() - 1; i >= 0; i--) {
 				entities.get(i).reset();
 			}
 		}
@@ -1201,7 +1233,7 @@ public class Entity implements IEntity {
 
 	@Override
 	public void dispose() {
-		if(!this.mDisposed) {
+		if (!this.mDisposed) {
 			this.mDisposed = true;
 		} else {
 			throw new AlreadyDisposedException();
@@ -1212,7 +1244,7 @@ public class Entity implements IEntity {
 	protected void finalize() throws Throwable {
 		super.finalize();
 
-		if(!this.mDisposed) {
+		if (!this.mDisposed) {
 			this.dispose();
 		}
 	}
@@ -1228,12 +1260,12 @@ public class Entity implements IEntity {
 	public void toString(final StringBuilder pStringBuilder) {
 		pStringBuilder.append(this.getClass().getSimpleName());
 
-		if((this.mChildren != null) && (this.mChildren.size() > 0)) {
+		if ((this.mChildren != null) && (this.mChildren.size() > 0)) {
 			pStringBuilder.append(" [");
 			final SmartList<IEntity> entities = this.mChildren;
-			for(int i = 0; i < entities.size(); i++) {
+			for (int i = 0; i < entities.size(); i++) {
 				entities.get(i).toString(pStringBuilder);
-				if(i < (entities.size() - 1)) {
+				if (i < (entities.size() - 1)) {
 					pStringBuilder.append(", ");
 				}
 			}
@@ -1250,35 +1282,47 @@ public class Entity implements IEntity {
 	public boolean isRegisteredForTimeModifier() {
 		return this.mIsRegisteredForTimeModifiedUpdate;
 	}
-	
+
 	@Override
 	public void setTimeModifedUpdater(ITimeModifiedUpdater pTimeModifiedUpdater) {
 		this.mTimeModifiedUpdater = pTimeModifiedUpdater;
 	}
-	
+
 	// ===========================================================
 	// Methods
 	// ===========================================================
 
 	/**
-	 * @param pGLState the currently active {@link GLState} i.e. to apply transformations to.
-	 * @param pCamera the currently active {@link Camera} i.e. to be used for culling.
+	 * @param pGLState
+	 *            the currently active {@link GLState} i.e. to apply
+	 *            transformations to.
+	 * @param pCamera
+	 *            the currently active {@link Camera} i.e. to be used for
+	 *            culling.
 	 */
 	protected void preDraw(final GLState pGLState, final Camera pCamera) {
 
 	}
 
 	/**
-	 * @param pGLState the currently active {@link GLState} i.e. to apply transformations to.
-	 * @param pCamera the currently active {@link Camera} i.e. to be used for culling.
+	 * @param pGLState
+	 *            the currently active {@link GLState} i.e. to apply
+	 *            transformations to.
+	 * @param pCamera
+	 *            the currently active {@link Camera} i.e. to be used for
+	 *            culling.
 	 */
 	protected void draw(final GLState pGLState, final Camera pCamera) {
 
 	}
 
 	/**
-	 * @param pGLState the currently active {@link GLState} i.e. to apply transformations to.
-	 * @param pCamera the currently active {@link Camera} i.e. to be used for culling.
+	 * @param pGLState
+	 *            the currently active {@link GLState} i.e. to apply
+	 *            transformations to.
+	 * @param pCamera
+	 *            the currently active {@link Camera} i.e. to be used for
+	 *            culling.
 	 */
 	protected void postDraw(final GLState pGLState, final Camera pCamera) {
 
@@ -1317,7 +1361,7 @@ public class Entity implements IEntity {
 	protected void applyRotation(final GLState pGLState) {
 		final float rotation = this.mRotation;
 
-		if(rotation != 0) {
+		if (rotation != 0) {
 			final float rotationCenterX = this.mRotationCenterX;
 			final float rotationCenterY = this.mRotationCenterY;
 
@@ -1335,7 +1379,7 @@ public class Entity implements IEntity {
 		final float skewX = this.mSkewX;
 		final float skewY = this.mSkewY;
 
-		if((skewX != 0) || (skewY != 0)) {
+		if ((skewX != 0) || (skewY != 0)) {
 			final float skewCenterX = this.mSkewCenterX;
 			final float skewCenterY = this.mSkewCenterY;
 
@@ -1349,7 +1393,7 @@ public class Entity implements IEntity {
 		final float scaleX = this.mScaleX;
 		final float scaleY = this.mScaleY;
 
-		if((scaleX != 1) || (scaleY != 1)) {
+		if ((scaleX != 1) || (scaleY != 1)) {
 			final float scaleCenterX = this.mScaleCenterX;
 			final float scaleCenterY = this.mScaleCenterY;
 
@@ -1365,13 +1409,13 @@ public class Entity implements IEntity {
 			this.onApplyTransformations(pGLState);
 
 			final SmartList<IEntity> children = this.mChildren;
-			if((children == null) || !this.mChildrenVisible) {
+			if ((children == null) || !this.mChildrenVisible) {
 				/* Draw only self. */
 				this.preDraw(pGLState, pCamera);
 				this.draw(pGLState, pCamera);
 				this.postDraw(pGLState, pCamera);
 			} else {
-				if(this.mChildrenSortPending) {
+				if (this.mChildrenSortPending) {
 					ZIndexSorter.getInstance().sort(this.mChildren);
 					this.mChildrenSortPending = false;
 				}
@@ -1380,9 +1424,9 @@ public class Entity implements IEntity {
 				int i = 0;
 
 				{ /* Draw children behind this Entity. */
-					for(; i < childCount; i++) {
+					for (; i < childCount; i++) {
 						final IEntity child = children.get(i);
-						if(child.getZIndex() < 0) {
+						if (child.getZIndex() < 0) {
 							child.onDraw(pGLState, pCamera);
 						} else {
 							break;
@@ -1396,7 +1440,7 @@ public class Entity implements IEntity {
 				this.postDraw(pGLState, pCamera);
 
 				{ /* Draw children in front of this Entity. */
-					for(; i < childCount; i++) {
+					for (; i < childCount; i++) {
 						children.get(i).onDraw(pGLState, pCamera);
 					}
 				}
@@ -1406,50 +1450,53 @@ public class Entity implements IEntity {
 	}
 
 	protected void onManagedUpdate(final float pSecondsElapsed) {
-		if(this.mEntityModifiers != null) {
+		if (this.mEntityModifiers != null) {
 			this.mEntityModifiers.onUpdate(pSecondsElapsed);
 		}
-		if(this.mUpdateHandlers != null) {
+		if (this.mUpdateHandlers != null) {
 			this.mUpdateHandlers.onUpdate(pSecondsElapsed);
 		}
 
-		if((this.mChildren != null) && !this.mChildrenIgnoreUpdate) {
+		if ((this.mChildren != null) && !this.mChildrenIgnoreUpdate) {
 			final SmartList<IEntity> entities = this.mChildren;
 			final int entityCount = entities.size();
 			final int timeModifier;
-			if(this.mTimeModifiedUpdater != null){
-				//Got the time modified updater so get time modifier.
+			if (this.mTimeModifiedUpdater != null) {
+				// Got the time modified updater so get time modifier.
 				timeModifier = this.mTimeModifiedUpdater.getTimeModifier();
-			}else{
-				//Want a time modified update but cannot get time modifier, so set to 1
+			} else {
+				// Want a time modified update but cannot get time modifier, so
+				// set to 1
 				timeModifier = 1;
 			}
-			
-			for(int i = 0; i < entityCount; i++) {
-				if(this.isRegisteredForTimeModifier()){
-					//This entity has a time registered update, so update children with same update seconds.
-					entities.get(i).onUpdate(pSecondsElapsed);	
-				}else{
-					//This entity is not registered for a time modified update.
-					if(entities.get(i).isRegisteredForTimeModifier()){
-						//Child is registered for a time modified update.
+
+			for (int i = 0; i < entityCount; i++) {
+				if (this.isRegisteredForTimeModifier()) {
+					// This entity has a time registered update, so update
+					// children with same update seconds.
+					entities.get(i).onUpdate(pSecondsElapsed);
+				} else {
+					// This entity is not registered for a time modified update.
+					if (entities.get(i).isRegisteredForTimeModifier()) {
+						// Child is registered for a time modified update.
 						entities.get(i).onUpdate(pSecondsElapsed * timeModifier);
-					}else{
-						//Isn't so don't update with a time modified update
+					} else {
+						// Isn't so don't update with a time modified update
 						entities.get(i).onUpdate(pSecondsElapsed);
 					}
 				}
-				//entities.get(i).onUpdate(pSecondsElapsed);
+				// entities.get(i).onUpdate(pSecondsElapsed);
 			}
 		}
 	}
 
 	private void assertEntityHasNoParent(final IEntity pEntity) throws IllegalStateException {
-		if(pEntity.hasParent()) {
+		if (pEntity.hasParent()) {
 			final String entityClassName = pEntity.getClass().getSimpleName();
 			final String currentParentClassName = pEntity.getParent().getClass().getSimpleName();
 			final String newParentClassName = this.getClass().getSimpleName();
-			throw new IllegalStateException("pEntity '" + entityClassName +"' already has a parent: '" + currentParentClassName + "'. New parent: '" + newParentClassName + "'!");
+			throw new IllegalStateException("pEntity '" + entityClassName + "' already has a parent: '"
+					+ currentParentClassName + "'. New parent: '" + newParentClassName + "'!");
 		}
 	}
 

@@ -25,7 +25,7 @@ import org.andengine.util.color.Color;
  * @author Nicolas Gramlich
  * @since 11:20:25 - 08.03.2010
  */
-public interface IEntity extends IDrawHandler, IUpdateHandler, IDisposable {
+public interface IEntity extends IDrawHandler, IUpdateHandler, IDisposable, IIsometricEntity {
 	// ===========================================================
 	// Constants
 	// ===========================================================
@@ -53,6 +53,7 @@ public interface IEntity extends IDrawHandler, IUpdateHandler, IDisposable {
 
 	public int getZIndex();
 	public void setZIndex(final int pZIndex);
+	public void setZIndexWithoutSort(final int pZIndex);
 
 	public boolean hasParent();
 	public IEntity getParent();
@@ -65,6 +66,13 @@ public interface IEntity extends IDrawHandler, IUpdateHandler, IDisposable {
 
 	public void setPosition(final IEntity pOtherEntity);
 	public void setPosition(final float pX, final float pY);
+	/**
+	 * 
+	 * @param pX
+	 * @param pY
+	 * @param pSort {@link Boolean} should we sort the entity children straight away?
+	 */
+	public void setPosition(final float pX, final float pY, final boolean pSort);
 
 	public boolean isRotated();
 	public float getRotation();
